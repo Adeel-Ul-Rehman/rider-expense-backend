@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/mongodb.js";
 import authRouter from "./routes/authRoute.js";
 import userRouter from "./routes/userRoute.js";
@@ -10,17 +12,30 @@ import dailyRecordRouter from "./routes/dailyRecordRoutes.js";
 const app = express();
 const port = process.env.PORT || 4000;
 
-// Define allowed origins for CORS
-const allowedOrigins = [
-  "https://riderexpense.free.nf", // Production frontend
-  "http://localhost:5173"         // Local development
-];
+if (isNaN(port)) {
+  console.error('Invalid PORT value');
+  process.exit(1);
+}
+
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
+app.use(limiter);
 
 // CORS configuration
+const allowedOrigins = [
+  "https://riderexpense.free.nf",
+  "http://localhost:5173"
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., Postman, curl) or from allowed origins
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -28,44 +43,42 @@ app.use(
       }
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Explicitly allow methods
-    allowedHeaders: ["Content-Type", "Authorization"],    // Allow necessary headers
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Handle CORS preflight requests explicitly
 app.options("*", cors());
 
-// Middleware for parsing JSON and URL-encoded data
+// Body parsing middleware
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("Backend is live!");
-});
-
-// API routes
+// Routes
+app.get("/", (req, res) => res.send("Backend is live!"));
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/daily", dailyRecordRouter);
 
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ message: "CORS policy violation" });
+  }
   console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!", error: err.message });
+  res.status(500).json({ message: "Internal Server Error" });
 });
 
-// Connect to MongoDB and start server
+// Start server
 const startServer = async () => {
   try {
-    await connectDB(); // Wait for MongoDB connection
+    await connectDB();
     app.listen(port, () => {
-      console.log(`Server Started on Port ${port}`);
+      console.log(`Server started on port ${port}`);
     });
   } catch (err) {
-    console.error("Failed to start server:", err);
+    console.error("Server startup failed:", err);
     process.exit(1);
   }
 };
