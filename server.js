@@ -10,24 +10,33 @@ import dailyRecordRouter from "./routes/dailyRecordRoutes.js";
 const app = express();
 const port = process.env.PORT || 4000;
 
-// ✅ CORS configuration
+// Define allowed origins for CORS
+const allowedOrigins = [
+  "https://riderexpense.free.nf", // Production frontend
+  "http://localhost:5173"         // Local development
+];
+
+// CORS configuration
 app.use(
   cors({
-    origin: [
-      "https://riderexpense.free.nf",   // Your production frontend
-      "http://riderexpense.free.nf",
-      "http://localhost:5173"           // Local dev
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g., Postman, curl) or from allowed origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Explicitly allow methods
+    allowedHeaders: ["Content-Type", "Authorization"],    // Allow necessary headers
   })
 );
 
-// Handle preflight requests
+// Handle CORS preflight requests explicitly
 app.options("*", cors());
 
-// Middlewares
+// Middleware for parsing JSON and URL-encoded data
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
@@ -45,20 +54,18 @@ app.use("/api/daily", dailyRecordRouter);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res
-    .status(500)
-    .json({ message: "Something went wrong!", error: err.message });
+  res.status(500).json({ message: "Something went wrong!", error: err.message });
 });
 
-// Connect DB and start server
+// Connect to MongoDB and start server
 const startServer = async () => {
   try {
-    await connectDB();
-    app.listen(port, () =>
-      console.log(`✅ Server running on port ${port}`)
-    );
+    await connectDB(); // Wait for MongoDB connection
+    app.listen(port, () => {
+      console.log(`Server Started on Port ${port}`);
+    });
   } catch (err) {
-    console.error("❌ Failed to start server:", err);
+    console.error("Failed to start server:", err);
     process.exit(1);
   }
 };
