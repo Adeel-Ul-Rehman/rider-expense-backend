@@ -15,31 +15,46 @@ const port = process.env.PORT || 4000;
 
 // Middleware
 app.use(helmet());
-app.use(express.json());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const allowedOrigins = ["http://localhost:5173", "https://riderexpense.free.nf"];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
-app.use(cors({
-  origin: ["http://localhost:5173", "https://riderexpense.free.nf"],
-  credentials: true,
-}));
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-}));
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+  })
+);
 
 // Routes
 app.get("/", (req, res) => {
   const status = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
-  res.send(`Server is running and database is ${status}`);
+  res.send(`Backend is live! Database is ${status}`);
 });
 
+// API routes
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/daily", dailyRecordRouter);
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.message);
-  res.status(500).json({ message: "Server Error" });
+  console.error(err.stack);
+  res.status(500).json({ message: "Server Error", error: err.message });
 });
 
 // Connect to DB and start server
@@ -50,7 +65,8 @@ const startServer = async () => {
       console.log(`Server running at http://localhost:${port}`);
     });
   } catch (err) {
-    console.error("DB connection failed", err);
+    console.error("Failed to start server:", err);
+    process.exit(1);
   }
 };
 
