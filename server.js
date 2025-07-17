@@ -9,28 +9,58 @@ import dailyRecordRouter from "./routes/dailyRecordRoutes.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
-connectDB();
 
-const allowedOrigins = ["http://localhost:5173"];
-
+// ✅ CORS configuration
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: [
+      "https://riderexpense.free.nf",   // Your production frontend
+      "http://riderexpense.free.nf",
+      "http://localhost:5173"           // Local dev
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
-app.use(express.json({ limit: '2mb' })); // Increased to handle base64 images
-app.use(express.urlencoded({ extended: true, limit: '2mb' })); // Increased to handle base64 images
+
+// Handle preflight requests
+app.options("*", cors());
+
+// Middlewares
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
+// Test route
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.send("Backend is live!");
 });
 
+// API routes
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/daily", dailyRecordRouter);
 
-app.listen(port, () => {
-  console.log(`Server Started on Port ${port}`);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res
+    .status(500)
+    .json({ message: "Something went wrong!", error: err.message });
 });
+
+// Connect DB and start server
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(port, () =>
+      console.log(`✅ Server running on port ${port}`)
+    );
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
+    process.exit(1);
+  }
+};
+
+startServer();
