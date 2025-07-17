@@ -12,18 +12,30 @@ import dailyRecordRouter from "./routes/dailyRecordRoutes.js";
 const app = express();
 const port = process.env.PORT || 4000;
 
+// Validate PORT
 if (isNaN(port)) {
   console.error('Invalid PORT value');
   process.exit(1);
 }
 
-// Security middleware
-app.use(helmet());
+// Enhanced security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later"
 });
 app.use(limiter);
 
@@ -33,50 +45,80 @@ const allowedOrigins = [
   "http://localhost:5173"
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    const msg = `The CORS policy does not allow access from ${origin}`;
+    return callback(new Error(msg), false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Authorization"],
+  maxAge: 86400 // 24 hours
+};
 
-app.options("*", cors());
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options("*", cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-// Routes
-app.get("/", (req, res) => res.send("Backend is live!"));
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
+
+// API routes
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/daily", dailyRecordRouter);
 
-// Error handling
+// Enhanced error handling
 app.use((err, req, res, next) => {
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ message: "CORS policy violation" });
+  if (err.message.includes("CORS policy")) {
+    return res.status(403).json({ 
+      success: false,
+      message: err.message 
+    });
   }
-  console.error(err.stack);
-  res.status(500).json({ message: "Internal Server Error" });
+
+  console.error(`[${new Date().toISOString()}] Error:`, err.stack);
+  
+  res.status(500).json({ 
+    success: false,
+    message: "Internal Server Error",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined
+  });
 });
 
-// Start server
+// Database connection and server start
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(port, () => {
-      console.log(`Server started on port ${port}`);
+    const server = app.listen(port, () => {
+      console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${port}`);
     });
+
+    // Handle server shutdown gracefully
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received. Shutting down gracefully...');
+      server.close(() => {
+        console.log('Server terminated');
+        process.exit(0);
+      });
+    });
+
   } catch (err) {
     console.error("Server startup failed:", err);
     process.exit(1);
