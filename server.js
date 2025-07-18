@@ -20,7 +20,7 @@ app.use(helmet());
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://riderexpense.free.nf" // ✅ your deployed frontend
+  "https://riderexpense.free.nf"
 ];
 
 app.use(cors({
@@ -31,9 +31,10 @@ app.use(cors({
       return callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true, // ✅ Needed for cookies across domains
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "Set-Cookie"],
+  exposedHeaders: ["Set-Cookie"],
 }));
 
 app.use(express.json({ limit: "2mb" }));
