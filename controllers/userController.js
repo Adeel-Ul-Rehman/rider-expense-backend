@@ -19,7 +19,7 @@ export const getUserData = async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: user._id, // Match frontend expected field name
+        id: user._id,
         name: user.name,
         email: user.email,
         employmentType: user.employmentType,

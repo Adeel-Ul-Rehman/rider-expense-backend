@@ -7,7 +7,6 @@ import { Buffer } from "buffer";
 
 export const register = async (req, res) => {
   try {
-    // Handle potential text/plain content-type
     let requestBody = req.body;
     if (typeof req.body === "string") {
       try {
@@ -23,16 +22,13 @@ export const register = async (req, res) => {
 
     const { name, email, password, employmentType } = requestBody;
 
-    // Validate required fields
     if (!name || !email || !password || !employmentType) {
       return res.status(400).json({
         success: false,
-        message:
-          "All fields are required: name, email, password, employmentType",
+        message: "All fields are required: name, email, password, employmentType",
       });
     }
 
-    // Validate name: max 20 characters, only alphabets, numbers, and spaces
     if (name.length > 20) {
       return res.status(400).json({
         success: false,
@@ -46,7 +42,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Validate password: min 8 characters, at least one alphabet and one number
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
@@ -60,7 +55,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Validate employmentType
     if (!["PartTimer", "FullTimer"].includes(employmentType)) {
       return res.status(400).json({
         success: false,
@@ -68,7 +62,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
       if (existingUser.isAccountVerified) {
@@ -77,44 +70,34 @@ export const register = async (req, res) => {
           message: "User already exists with this email",
         });
       } else {
-        // Update unverified user with new OTP and fields
         const otp = String(Math.floor(100000 + Math.random() * 900000));
-        const otpExpiry = Date.now() + 3600000; // 1 hour
+        const otpExpiry = Date.now() + 3600000;
 
         existingUser.verifyOtp = otp;
         existingUser.verifyOtpExpireAt = otpExpiry;
-        // Update password if provided
         if (password) {
           existingUser.password = await bcrypt.hash(password, 10);
         }
-        // Update name and employmentType if provided
         if (name) existingUser.name = name;
         if (employmentType) {
           existingUser.employmentType = employmentType;
-          existingUser.fixedSalary =
-            employmentType === "FullTimer" ? 37000 : 18500;
+          existingUser.fixedSalary = employmentType === "FullTimer" ? 37000 : 18500;
         }
 
         await existingUser.save();
 
-        // Generate JWT token
-        const token = jwt.sign(
-          { id: existingUser._id },
-          process.env.JWT_SECRET,
-          {
-            expiresIn: "7d",
-          }
-        );
+        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
+          expiresIn: "7d",
+        });
 
-        // Set HTTP-only cookie
         res.cookie("token", token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
           maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: "/",
         });
 
-        // Send OTP email
         try {
           const mailOptions = {
             from: process.env.SENDER_EMAIL,
@@ -126,7 +109,6 @@ export const register = async (req, res) => {
                   <h1 style="color: #E31837; text-align: center;">Domino's Rider Expense</h1>
                   <p>Dear ${name},</p>
                   <p>We're thrilled to have you join our team of dedicated riders with email: <strong>${email}</strong>!</p>
-                  
                   <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
                     <h3 style="color: #E31837; margin-top: 0;">Email Verification OTP</h3>
                     <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px; margin: 15px 0; color: #E31837;">
@@ -134,15 +116,11 @@ export const register = async (req, res) => {
                     </p>
                     <p style="color: #777;">This OTP is valid for 1 hour.</p>
                   </div>
-
                   <p>Please verify your email address to complete your registration.</p>
-                  
                   <div style="text-align: center; margin: 20px 0;">
                     <a href="mailto:dominoriderexpense@gmail.com" style="display: inline-block; padding: 10px 20px; background: #fff; border: 2px solid #006491; color: #006491; text-decoration: none; border-radius: 5px; font-weight: bold; transition: all 0.3s;">Contact Support</a>
                   </div>
-
                   <p>Best regards,<br>Adeel Ul Rehman 😇<br>The Domino's Rider Team</p>
-                  
                   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
                     <p>Need help? <a href="mailto:dominoriderexpense@gmail.com" style="color: #006491; text-decoration: none;">Contact our support team</a></p>
                     <p>If you didn't request this, please ignore this email.</p>
@@ -153,22 +131,15 @@ export const register = async (req, res) => {
             `,
             text: `
 Welcome to Domino's Rider Expense Family!
-
 Dear ${name},
-
 We're thrilled to have you join our team of dedicated riders with email: ${email}!
-
 Email Verification OTP: ${otp}
 This OTP is valid for 1 hour.
-
 Please verify your email address to complete your registration.
-
 Need help? Contact: dominoriderexpense@gmail.com
-
 Best regards,
 Adeel Ul Rehman 😇
 The Domino's Rider Team
-
 If you didn't request this, please ignore this email.
 © ${new Date().getFullYear()} Domino's Rider Expense System.
             `,
@@ -180,10 +151,7 @@ If you didn't request this, please ignore this email.
           return res.status(500).json({
             success: false,
             message: "User updated but failed to send OTP email",
-            error:
-              process.env.NODE_ENV === "development"
-                ? emailError.message
-                : undefined,
+            error: process.env.NODE_ENV === "development" ? emailError.message : undefined,
           });
         }
 
@@ -199,9 +167,8 @@ If you didn't request this, please ignore this email.
       }
     }
 
-    // Create new user
     const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const otpExpiry = Date.now() + 3600000; // 1 hour
+    const otpExpiry = Date.now() + 3600000;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = new userModel({
@@ -211,23 +178,23 @@ If you didn't request this, please ignore this email.
       employmentType,
       verifyOtp: otp,
       verifyOtpExpireAt: otpExpiry,
+      fixedSalary: employmentType === "FullTimer" ? 37000 : 18500,
     });
 
     await user.save();
 
-    // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    // Set HTTP-only cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
     });
-    // Send welcome email with OTP
+
     try {
       const mailOptions = {
         from: process.env.SENDER_EMAIL,
@@ -239,7 +206,6 @@ If you didn't request this, please ignore this email.
               <h1 style="color: #E31837; text-align: center;">Domino's Rider Expense</h1>
               <p>Dear ${name},</p>
               <p>We're thrilled to have you join our team of dedicated riders with email: <strong>${email}</strong>!</p>
-              
               <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
                 <h3 style="color: #E31837; margin-top: 0;">Email Verification OTP</h3>
                 <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px; margin: 15px 0; color: #E31837;">
@@ -247,15 +213,11 @@ If you didn't request this, please ignore this email.
                 </p>
                 <p style="color: #777;">This OTP is valid for 1 hour.</p>
               </div>
-
               <p>Please verify your email address to complete your registration.</p>
-              
               <div style="text-align: center; margin: 20px 0;">
                 <a href="mailto:dominoriderexpense@gmail.com" style="display: inline-block; padding: 10px 20px; background: #fff; border: 2px solid #006491; color: #006491; text-decoration: none; border-radius: 5px; font-weight: bold; transition: all 0.3s;">Contact Support</a>
               </div>
-
               <p>Best regards,<br>Adeel Ul Rehman 😇<br>The Domino's Rider Team</p>
-              
               <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
                 <p>Need help? <a href="mailto:dominoriderexpense@gmail.com" style="color: #006491; text-decoration: none;">Contact our support team</a></p>
                 <p>If you didn't request this, please ignore this email.</p>
@@ -266,25 +228,18 @@ If you didn't request this, please ignore this email.
         `,
         text: `
 Welcome to Domino's Rider Expense Family!
-
 Dear ${name},
-
 We're thrilled to have you join our team of dedicated riders with email: ${email}!
-
 Email Verification OTP: ${otp}
 This OTP is valid for 1 hour.
-
 Please verify your email address to complete your registration.
-
 Need help? Contact: dominoriderexpense@gmail.com
-
 Best regards,
 Adeel Ul Rehman 😇
 The Domino's Rider Team
-
 If you didn't request this, please ignore this email.
 © ${new Date().getFullYear()} Domino's Rider Expense System.
-            `,
+        `,
       };
 
       await transporter.sendMail(mailOptions);
@@ -293,10 +248,7 @@ If you didn't request this, please ignore this email.
       return res.status(500).json({
         success: false,
         message: "User created but failed to send OTP email",
-        error:
-          process.env.NODE_ENV === "development"
-            ? emailError.message
-            : undefined,
+        error: process.env.NODE_ENV === "development" ? emailError.message : undefined,
       });
     }
 
@@ -372,7 +324,6 @@ export const verifyEmail = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    // Handle potential text/plain content-type
     let requestBody = req.body;
     if (typeof req.body === "string") {
       try {
@@ -421,13 +372,12 @@ export const login = async (req, res) => {
       expiresIn: "7d",
     });
 
-    const isProduction = process.env.NODE_ENV === "production";
-
     res.cookie("token", token, {
       httpOnly: true,
-      secure: isProduction, // true only in production (HTTPS)
-      sameSite: isProduction ? "None" : "Lax", // 'None' needed for cross-site cookies
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
     });
 
     return res.json({
@@ -453,7 +403,8 @@ export const logout = async (req, res) => {
     res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     });
 
     return res.json({
