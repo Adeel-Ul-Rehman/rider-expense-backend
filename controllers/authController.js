@@ -405,6 +405,7 @@ export const logout = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
     });
 
     return res.json({
@@ -419,6 +420,8 @@ export const logout = async (req, res) => {
     });
   }
 };
+
+
 
 // Email verification OTP
 export const sendVerifyOtp = async (req, res) => {
@@ -487,6 +490,7 @@ export const isAuthenticated = async (req, res) => {
         email: user.email,
         employmentType: user.employmentType,
         isAccountVerified: user.isAccountVerified,
+        profilePicture: user.profilePicture || null,
       },
     });
   } catch (error) {
