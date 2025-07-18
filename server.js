@@ -13,9 +13,7 @@ import dailyRecordRouter from "./routes/dailyRecordRoutes.js";
 const app = express();
 const port = process.env.PORT || 4000;
 
-// ==================
 // Security & Middlewares
-// ==================
 app.use(helmet());
 
 const allowedOrigins = [
@@ -27,7 +25,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+        callback(null, origin || true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
@@ -41,13 +39,19 @@ app.use(
   })
 );
 
+app.options("*", cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Set-Cookie"],
+  exposedHeaders: ["Set-Cookie"],
+}));
+
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-// ==================
 // Rate Limiting
-// ==================
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -56,9 +60,7 @@ app.use(
   })
 );
 
-// ==================
 // Routes
-// ==================
 app.get("/", (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
   res.status(200).json({
@@ -71,9 +73,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/daily", dailyRecordRouter);
 
-// ==================
 // Error Handler
-// ==================
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
@@ -82,9 +82,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ==================
 // Start Server
-// ==================
 const startServer = async () => {
   try {
     await connectDB();
