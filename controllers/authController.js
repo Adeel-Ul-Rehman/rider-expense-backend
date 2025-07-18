@@ -27,7 +27,8 @@ export const register = async (req, res) => {
     if (!name || !email || !password || !employmentType) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required: name, email, password, employmentType",
+        message:
+          "All fields are required: name, email, password, employmentType",
       });
     }
 
@@ -90,15 +91,20 @@ export const register = async (req, res) => {
         if (name) existingUser.name = name;
         if (employmentType) {
           existingUser.employmentType = employmentType;
-          existingUser.fixedSalary = employmentType === "FullTimer" ? 37000 : 18500;
+          existingUser.fixedSalary =
+            employmentType === "FullTimer" ? 37000 : 18500;
         }
 
         await existingUser.save();
 
         // Generate JWT token
-        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
-          expiresIn: "7d",
-        });
+        const token = jwt.sign(
+          { id: existingUser._id },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: "7d",
+          }
+        );
 
         // Set HTTP-only cookie
         res.cookie("token", token, {
@@ -165,7 +171,7 @@ The Domino's Rider Team
 
 If you didn't request this, please ignore this email.
 © ${new Date().getFullYear()} Domino's Rider Expense System.
-            `
+            `,
           };
 
           await transporter.sendMail(mailOptions);
@@ -174,7 +180,10 @@ If you didn't request this, please ignore this email.
           return res.status(500).json({
             success: false,
             message: "User updated but failed to send OTP email",
-            error: process.env.NODE_ENV === "development" ? emailError.message : undefined,
+            error:
+              process.env.NODE_ENV === "development"
+                ? emailError.message
+                : undefined,
           });
         }
 
@@ -276,7 +285,7 @@ The Domino's Rider Team
 
 If you didn't request this, please ignore this email.
 © ${new Date().getFullYear()} Domino's Rider Expense System.
-            `
+            `,
       };
 
       await transporter.sendMail(mailOptions);
@@ -285,7 +294,10 @@ If you didn't request this, please ignore this email.
       return res.status(500).json({
         success: false,
         message: "User created but failed to send OTP email",
-        error: process.env.NODE_ENV === "development" ? emailError.message : undefined,
+        error:
+          process.env.NODE_ENV === "development"
+            ? emailError.message
+            : undefined,
       });
     }
 
@@ -410,11 +422,13 @@ export const login = async (req, res) => {
       expiresIn: "7d",
     });
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: isProduction, // true only in production (HTTPS)
+      sameSite: isProduction ? "None" : "Lax", // 'None' needed for cross-site cookies
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     return res.json({
@@ -506,7 +520,9 @@ export const sendVerifyOtp = async (req, res) => {
 // Check authentication status
 export const isAuthenticated = async (req, res) => {
   try {
-    const user = await userModel.findById(req.userId).select('-password -verifyOtp -resetOtp');
+    const user = await userModel
+      .findById(req.userId)
+      .select("-password -verifyOtp -resetOtp");
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -520,8 +536,8 @@ export const isAuthenticated = async (req, res) => {
         name: user.name,
         email: user.email,
         employmentType: user.employmentType,
-        isAccountVerified: user.isAccountVerified
-      }
+        isAccountVerified: user.isAccountVerified,
+      },
     });
   } catch (error) {
     console.error("Auth check error:", error);
@@ -536,11 +552,11 @@ export const isAuthenticated = async (req, res) => {
 export const sendResetOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    
+
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Email is required"
+        message: "Email is required",
       });
     }
 
@@ -548,14 +564,14 @@ export const sendResetOtp = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
     if (!user.isAccountVerified) {
       return res.status(401).json({
         success: false,
-        message: "Please verify your email first"
+        message: "Please verify your email first",
       });
     }
 
@@ -619,20 +635,20 @@ The Domino's Rider Team
 
 If you didn't request this, please ignore this email.
 © ${new Date().getFullYear()} Domino's Rider Expense System.
-      `
+      `,
     };
-    
+
     await transporter.sendMail(mailOptions);
-    
-    return res.json({ 
-      success: true, 
-      message: "Password reset OTP sent to email" 
+
+    return res.json({
+      success: true,
+      message: "Password reset OTP sent to email",
     });
   } catch (error) {
-    console.error('Reset OTP error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to send reset OTP" 
+    console.error("Reset OTP error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send reset OTP",
     });
   }
 };
@@ -756,11 +772,11 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.userId;
-    const { name, oldPassword, newPassword, employmentType, profilePicture } = req.body;
+    const { name, oldPassword, newPassword, employmentType, profilePicture } =
+      req.body;
 
     const user = await userModel.findById(userId);
     if (!user) {
@@ -777,7 +793,7 @@ export const updateProfile = async (req, res) => {
     }
 
     if (employmentType && employmentType !== user.employmentType) {
-      if (!['PartTimer', 'FullTimer'].includes(employmentType)) {
+      if (!["PartTimer", "FullTimer"].includes(employmentType)) {
         return res.status(400).json({
           success: false,
           message: "Invalid employment type",
@@ -821,7 +837,7 @@ export const updateProfile = async (req, res) => {
     }
 
     if (profilePicture) {
-      if (!profilePicture.startsWith('data:image/')) {
+      if (!profilePicture.startsWith("data:image/")) {
         return res.status(400).json({
           success: false,
           message: "Invalid profile picture format",
@@ -837,11 +853,9 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    const updatedUser = await userModel.findByIdAndUpdate(
-      userId,
-      updateData,
-      { new: true }
-    ).select('-password -verifyOtp -resetOtp');
+    const updatedUser = await userModel
+      .findByIdAndUpdate(userId, updateData, { new: true })
+      .select("-password -verifyOtp -resetOtp");
 
     return res.json({
       success: true,
@@ -849,7 +863,7 @@ export const updateProfile = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
-    console.error('Profile update error:', error);
+    console.error("Profile update error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update profile",
@@ -862,7 +876,7 @@ export const uploadProfilePicture = async (req, res) => {
     const userId = req.userId;
     const { profilePicture } = req.body;
 
-    if (!profilePicture || !profilePicture.startsWith('data:image/')) {
+    if (!profilePicture || !profilePicture.startsWith("data:image/")) {
       return res.status(400).json({
         success: false,
         message: "Invalid or missing profile picture",
@@ -878,7 +892,8 @@ export const uploadProfilePicture = async (req, res) => {
     }
 
     // Validate base64 string size (max 5MB)
-    const base64Size = Buffer.byteLength(profilePicture, 'base64') / (1024 * 1024);
+    const base64Size =
+      Buffer.byteLength(profilePicture, "base64") / (1024 * 1024);
     if (base64Size > 5) {
       return res.status(400).json({
         success: false,
@@ -889,14 +904,16 @@ export const uploadProfilePicture = async (req, res) => {
     user.profilePicture = profilePicture;
     await user.save();
 
-    const updatedUser = await userModel.findById(userId).select('-password -verifyOtp -resetOtp');
+    const updatedUser = await userModel
+      .findById(userId)
+      .select("-password -verifyOtp -resetOtp");
     return res.json({
       success: true,
       message: "Profile picture uploaded successfully",
       user: updatedUser,
     });
   } catch (error) {
-    console.error('Profile picture upload error:', error);
+    console.error("Profile picture upload error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to upload profile picture",
@@ -926,14 +943,16 @@ export const removeProfilePicture = async (req, res) => {
     user.profilePicture = null;
     await user.save();
 
-    const updatedUser = await userModel.findById(userId).select('-password -verifyOtp -resetOtp');
+    const updatedUser = await userModel
+      .findById(userId)
+      .select("-password -verifyOtp -resetOtp");
     return res.json({
       success: true,
       message: "Profile picture removed successfully",
       user: updatedUser,
     });
   } catch (error) {
-    console.error('Profile picture removal error:', error);
+    console.error("Profile picture removal error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to remove profile picture",
@@ -1000,4 +1019,3 @@ export const deleteAccount = async (req, res) => {
     });
   }
 };
-
