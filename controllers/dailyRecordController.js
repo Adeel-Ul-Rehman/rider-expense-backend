@@ -3,7 +3,7 @@ import DailyRecord from "../models/dailyRecordModels.js";
 import MonthlySummary from "../models/monthlySummaryModels.js";
 import userModel from "../models/userModels.js";
 
-// Helper function to get current billing cycle
+// Helper function to get current billing cycle (21st to 20th)
 const getBillingCycle = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -11,17 +11,19 @@ const getBillingCycle = () => {
   const day = today.getDate();
   let startDate, endDate;
 
-  if (day < 20) {
-    startDate = new Date(year, month - 1, 20);
-    endDate = new Date(today);
-  } else {
-    startDate = new Date(year, month, 20);
+  if (day >= 21) {
+    // Current cycle started on 21st of current month
+    startDate = new Date(year, month, 21);
     endDate = new Date(year, month + 1, 20);
+  } else {
+    // Current cycle started on 21st of previous month
+    startDate = new Date(year, month - 1, 21);
+    endDate = new Date(year, month, 20);
   }
 
-  // Set times to midnight UTC
+  // Set times correctly
   startDate.setUTCHours(0, 0, 0, 0);
-  endDate.setUTCHours(0, 0, 0, 0);
+  endDate.setUTCHours(23, 59, 59, 999);
   return { startDate, endDate };
 };
 
@@ -500,10 +502,10 @@ export const getHistoryRecords = async (req, res) => {
     const fromDate = new Date(from_date);
     const toDate = new Date(to_date);
     fromDate.setUTCHours(0, 0, 0, 0);
-    toDate.setUTCHours(23, 59, 59, 999); // Include entire to_date
+    toDate.setUTCHours(23, 59, 59, 999);
 
     const today = new Date();
-    today.setUTCHours(23, 59, 59, 999); // End of current day in UTC
+    today.setUTCHours(23, 59, 59, 999);
     const accountCreated = new Date(user.account_created_at);
     accountCreated.setUTCHours(0, 0, 0, 0);
 
@@ -514,7 +516,12 @@ export const getHistoryRecords = async (req, res) => {
       });
     }
 
-    // Aggregate records for the entire date range
+    // Get records for each day in the range, including days with no records
+    const allDays = [];
+    for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
+      allDays.push(new Date(d));
+    }
+
     const records = await DailyRecord.aggregate([
       {
         $match: {
@@ -531,6 +538,15 @@ export const getHistoryRecords = async (req, res) => {
           days_off: {
             $sum: { $cond: [{ $eq: ["$work_status", "Off"] }, 1, 0] },
           },
+          dailyRecords: {
+            $push: {
+              date: "$date",
+              deliveries: "$deliveries",
+              tips: "$tips",
+              expenses: "$expenses",
+              work_status: "$work_status"
+            }
+          }
         },
       },
     ]);
@@ -540,7 +556,22 @@ export const getHistoryRecords = async (req, res) => {
       total_tips: 0,
       total_expenses: 0,
       days_off: 0,
+      dailyRecords: []
     };
+
+    // Fill in missing days with zero values
+    const completeDailyRecords = allDays.map(day => {
+      const record = stats.dailyRecords.find(r => 
+        new Date(r.date).toDateString() === day.toDateString()
+      );
+      return record || {
+        date: new Date(day),
+        deliveries: 0,
+        tips: 0,
+        expenses: 0,
+        work_status: "Off"
+      };
+    });
 
     let total_earnings = 0;
     if (includeArray.includes("deliveries")) {
@@ -561,6 +592,7 @@ export const getHistoryRecords = async (req, res) => {
         total_deliveries: stats.total_deliveries,
         days_off: stats.days_off,
       },
+      dailyRecords: completeDailyRecords
     });
   } catch (error) {
     console.error("Get history summary error:", error);

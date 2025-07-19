@@ -19,7 +19,7 @@ export const getUserData = async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id, // Include _id for frontend
         name: user.name,
         email: user.email,
         employmentType: user.employmentType,
@@ -29,6 +29,6 @@ export const getUserData = async (req, res) => {
     });
   } catch (error) {
     console.error("getUserData error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
