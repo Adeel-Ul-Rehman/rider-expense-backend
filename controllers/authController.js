@@ -431,15 +431,12 @@ export const login = async (req, res) => {
     });
 
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      domain:
-        process.env.NODE_ENV === "production"
-          ? ".riderexpense.free.nf"
-          : undefined,
-    });
+  httpOnly: true,
+  secure: true,           // ✅ required on https
+  sameSite: "None",       // ✅ required for cross-site (localhost -> render)
+  maxAge: 7 * 24 * 60 * 60 * 1000, // optional
+});
+
 
     return res.json({
       success: true,
