@@ -430,12 +430,13 @@ export const login = async (req, res) => {
       expiresIn: "7d",
     });
 
-    res.cookie("token", token, {
-  httpOnly: true,
-  secure: true,           // ✅ required on https
-  sameSite: "None",       // ✅ required for cross-site (localhost -> render)
-  maxAge: 7 * 24 * 60 * 60 * 1000, // optional
-});
+   res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
 
 
     return res.json({
