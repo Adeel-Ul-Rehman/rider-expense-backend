@@ -23,6 +23,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:5173",
   "https://riderexpense.free.nf",
+    "http://localhost:3000",
   "https://rider-expense.onrender.com",
   "https://rider-expense-backend.onrender.com"
 ];
